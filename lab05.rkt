@@ -79,20 +79,22 @@
   (lambda (expression environment)
     (if (not (special-form? expression))
         (error "Expression is not in special form.")
-        (if (eq? (car expression) 'cond)
-            (evaluate-cond (cdr expression) environment)
-            (evaluate-if (cdr expression) environment)))))
+        (cond
+          ((eq? (car expression) 'cond) (evaluate-cond (cdr expression) environment))
+          ((eq? (car expression) 'if) (evaluate-if (cdr expression) environment))))))
 
 (define evaluate-if
   (lambda (expression environment)
+    (display expression)
+    (newline)
     (if (evaluate (car expression) environment)
-        (evaluate (cdar expression) environment)
-        (evaluate (cddar expression) environment))))
+        (evaluate (car (cdr expression)) environment)
+        (evaluate (car (cdr (cdr expression))) environment))))
 
 (define evaluate-cond
   (lambda (expression environment)
     (if (eq? (caar expression) 'else)
-        (evaluate (cdar expression) environment)
+        (evaluate (cadar expression) environment)
         (if (evaluate (caar expression) environment)
             (evaluate (cadar expression) environment)
             (evaluate-cond (cdr expression) environment)))))
@@ -102,9 +104,14 @@
              (list 'x 5)
              (list '+ +)
              (list '* *)
+             (list '- -)
              (list '= =)))
-(special-form? '(if (= 1 1) (+ 1 1) (- 2 2)))
-(evaluate '(if (= 1 1) (+ 1 1) (- 2 2)) env)
+
+(special-form? '(if (= 1 1) (- (+ 1 1) 5) (- 2 2)))
+;;(evaluate '(if (= 3 (+ 1 1)) (- (+ 1 2) 5) (- 2 2)) env)
+(evaluate '(cond ((= 1 2) (+ 1 2))
+                 ((= 1 1) (+ 1 3))
+                 (else (+ 1 5))) env)
 
 
 
