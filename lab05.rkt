@@ -119,8 +119,10 @@
         ;; if there are more or less than 3 elements after if, the syntax is bad
         (error "Bad syntax. Expected 3 things after the if-statement"))))
 
-;; NOTE: Checks if there's no else  or else is not the last statement. throw some errors
+
 ;; Evaluates a cond special form expression
+;; NOTE: Doesn't behave exactly like the actual cond 
+;; (doesn't return errors when else is in the middle of the expression, or if no else is present)
 (define evaluate-cond
   (lambda (expression environment)
     (if (evaluate (caar expression) environment)
