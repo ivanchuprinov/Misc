@@ -14,7 +14,8 @@
 ;; a list of lists), also taking
 ;; in account special forms of
 ;; expressions 
-;; (if, cond, let, lambda, letrec)
+;; (if, cond, let, lambda)
+;; I could not get letrec to work
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (provide lookup evaluate)
 
@@ -41,8 +42,6 @@
   (lambda (symbol environment)
     (if (empty? environment)
         (begin
-          (display environment)(newline)
-          (display symbol)(newline)
           (error "Symbol not found"))
         (if (symbol? symbol)
             ;; if the first parameter is a symbol
@@ -59,6 +58,7 @@
 ;; Evaluates the expression list given the environment
 (define evaluate
   (lambda (expression environment)
+    ;(display "EXPRESSION: ")(display expression)(newline)
     (cond
       ;; A number is returned unchanged.
       ((number? expression) expression)
@@ -150,7 +150,7 @@
               ;;ls1 is the list of cars (variable names)
               ;;ls2 is the list of evaluated cadars (assigned values)
               (set! ls1 (append ls1 (list (caar assignment-list))))
-              (set! ls2 (append ls2 (list (evaluate (cadar assignment-list) OGenv))))
+              (set! ls2 (append ls2 (list (evaluate (cadar assignment-list) '()))))
               (loop (cdr assignment-list)))))
       ;; give the local environment correct structure
       (let ((local-env empty))
@@ -179,18 +179,19 @@
 ;; Applies a procedure to a list. If is a closure, calls apply-closure
 (define apply-function
   (lambda (proc list)
-    (if (closure? proc)
-        (print-closure proc)
-        (display proc))
-    (newline)
-    (if (closure? list)
-        (print-closure list)
-        (display list))
-    (newline)
-    (cond  ((procedure? proc) (apply proc list))
-           ((closure? proc) (apply-closure proc list))
+    
+    (cond  ((procedure? proc) (apply proc (unify-list list)))
+           ((closure? proc) (apply-closure proc (unify-list list)))
            ;; If the proc variable is not a procedure or a closure, throws an error
            (else (error "Unknown function type")))))
+
+;; I tried to make a unified list so that all closures are calculated before applying a function
+;; it does not work
+(define unify-list
+  (lambda (ls)
+    (cond ((empty? ls) '())
+          ((number? (car ls)) (append (list (car ls)) (unify-list (cdr ls))))
+          ((list? (car ls)) (append (apply-function (caar ls) (cdar ls)) (unify-list (cdr ls)))))))
 
 ;; Applies a closure to the given list of parameters
 (define apply-closure
@@ -225,37 +226,32 @@
               (loop (cdr assignment-list)))))
       ;(show expression)
       ;; give the local environment correct structure
-      (let ((local-env empty))
+      (let ((NewEnv empty))
         (let loop ((ls1 ls1) (ls2 ls2))
           (if (empty? ls1)
               ;; stop looping when ls1 is empty (ls1 and ls2 are of the same size)
-              '()
+              (void)
               ;; give local environment the structure '((var1 val1) (var2 val2)...)
               (begin
-                (set! local-env (append
-                                 local-env
+                (set! NewEnv (append
+                                 NewEnv
                                  (list (append
                                         (list (car ls1))
                                         (list (car ls2))))))
                 (loop (cdr ls1) (cdr ls2)))))
         
         
-        (let loop ((env local-env))
+        (let loop ((env NewEnv))
           (if (empty? env)
               (void)
               (if (closure? (cadar env))
                   (begin
-                    (set-closure-env! (cadar env) (append env OGenv))
+                    (set-closure-env! (cadar env) (append NewEnv OGenv))
                     (loop (cdr env)))
                   (loop (cdr env)))))
+        
         ;; evaluate the expression in the extended environment              
-        (let ((extended-env (append local-env OGenv)))
-          ;(show extended-env)
-          (display expression)
-          (newline)
-          (evaluate expression extended-env))))))
-
-(define cl1 (closure '(a b) '(+ ab) '((x 1) (y 2))))
+        (evaluate expression (append NewEnv OGenv))))))
 
 
 
@@ -273,13 +269,20 @@
              (display x)
              (newline))))))
 
+
+(define cl1 (closure '(a b) '(+ ab) '((x 1) (y 2))))
+
+
+
+
+
 (define print-closure
   (lambda (cl)
     (display (list 'closure (closure-vars cl) (closure-expr cl) (closure-env cl)))
     (newline)))
 
 (define add
-  (lambda (a b)
+  (lambda (a b)/
     (cond ((and (number? a) (number? b)) (+ a b))
           ((and (list? a) (list? b)) (append a b))
           (else (error "unable to add" a b)))))
@@ -288,7 +291,10 @@
                  '(x y z + - * cons car cdr nil = equal? < else  add list)
              (list 2 4 6 + - * cons car cdr '() = equal? < #t    add list)))
 
-(define env '((x 10) (y 5) ('+ +) ('- -) ('* *) ('< <) ('> >)))
+(define env '((x 10) (y 5) (+ +) (- -) (* *) (< <) (> >) (= =)))
 
-(evaluate '(letrec ((f (lambda (n) (if (< n 1) 1 (* n (f (- n 1))))))) (f 5)) env)
+(evaluate '(letrec ((plus (lambda (a b) (if (= a 0) b (+ 1 (plus (- a 1) b)))))
+                    (even? (lambda (n) (if (= n 0) (= 1 1) (odd? (- n 1)))))
+                    (odd? (lambda (n) (if (= n 0) (= 1 2) (even? (- n 1))))))
+             (+ 1 3 (+ 2 3))) e1)
 ;(letrec ((f (lambda (n) (if (< n 1) 1 (* n (f (- n 1))))))) (f 5)) 
